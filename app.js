@@ -4,10 +4,13 @@ let history={},cards=[],quizzes=[],queue=[],index=0,correct=0;
 const quizMode=()=>el('mode').value==='quiz';
 try{history=JSON.parse(localStorage.getItem(storage))||{}}catch{}
 function show(screen){for(const id of ['home','study','done'])el(id).hidden=id!==screen}
-function pool(){return (quizMode()?quizzes:cards).filter(c=>el('subject').value==='すべて'||el('subject').value===c.subject)}
+function pool(){return (quizMode()?quizzes:cards).filter(c=>
+ (el('subject').value==='すべて'||el('subject').value===c.subject)&&
+ (!quizMode()||el('scope').value==='all'||c.scope===el('scope').value))}
 function home(){
  const list=pool(),miss=list.filter(c=>history[c.id]==='retry').length;
- el('guide').textContent=quizMode()?'練習用の本文・数値を読んで選択してください。言語は3択、英語と計数は4択です。':'答えを思い出してからカードをめくります。';
+ el('scopeLabel').hidden=!quizMode();
+ el('guide').textContent=quizMode()?'言語は3択、英語と計数は4択。元カードはテーマと設問の手がかりから答えを思い出す練習です。':'答えを思い出してからカードをめくります。';
  el('stats').textContent=list.length+'問中　覚えた '+list.filter(c=>history[c.id]==='known').length+'問 ／ 要復習 '+miss+'問';
  el('review').disabled=!miss;show('home');
 }
@@ -15,7 +18,7 @@ function start(review){
  let list=pool().filter(c=>!review||history[c.id]==='retry');
  for(let j=list.length-1;j>0;j--){const k=Math.floor(Math.random()*(j+1));[list[k],list[j]]=[list[j],list[k]]}
  if(!review)list.sort((a,b)=>Number(history[a.id]==='known')-Number(history[b.id]==='known'));
- queue=list.slice(0,10);index=0;correct=0;if(!queue.length)return home();show('study');draw();
+ queue=el('limit').value==='all'?list:list.slice(0,10);index=0;correct=0;if(!queue.length)return home();show('study');draw();
 }
 function draw(){
  const c=queue[index];el('position').textContent=(index+1)+' / '+queue.length+'問';el('bar').max=queue.length;el('bar').value=index;
@@ -50,6 +53,7 @@ function advance(){
 }
 function rate(ok){record(ok);advance()}
 el('mode').onchange=home;el('next').onclick=advance;
+el('scope').onchange=home;
 el('begin').onclick=()=>start(false);el('review').onclick=el('again').onclick=()=>start(true);
 el('exit').onclick=el('menu').onclick=el('subject').onchange=home;
 el('flip').onclick=()=>{el('answer').hidden=false;el('ratings').hidden=false;el('flip').hidden=true};
@@ -65,6 +69,6 @@ try{
  const qr=await fetch('quiz.bin');if(!qr.ok)throw Error();
  const bytes=new Uint8Array(await qr.arrayBuffer());
  const quizGroups=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.slice(0,12)},key,bytes.slice(12))));
- quizzes=Object.entries(quizGroups).flatMap(([subject,rows])=>rows.map(([passage,q,a,...distractors],i)=>({subject,passage,q,a,distractors,id:'quiz-'+subject+i})));
+ quizzes=Object.entries(quizGroups).flatMap(([subject,rows])=>rows.map(([passage,q,a,...distractors],i)=>({subject,passage,q,a,distractors,scope:passage.startsWith('元カード')?'original':'practice',id:'quiz-'+subject+i})));
  el('status').hidden=true;home();
 }catch{el('status').textContent='カードを開けません。共有URLを末尾までコピーして開き直してください。'}
