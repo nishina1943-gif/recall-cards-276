@@ -21,7 +21,7 @@ function start(review){
 function draw(){
  const c=queue[index];el('position').textContent=(index+1)+' / '+queue.length+'問';el('bar').max=queue.length;el('bar').value=index;
  el('theme').textContent=[c.subject,c.topic].filter(Boolean).join('　／　');el('question').textContent=c.q;
- el('value').textContent=c.a;el('answer').hidden=true;el('ratings').hidden=true;el('flip').hidden=false;
+ el('memo').textContent=c.memo;el('value').textContent=c.a;el('answer').hidden=true;el('ratings').hidden=true;el('flip').hidden=false;
  el('answer').firstElementChild.textContent='解答';
  el('next').hidden=true;el('passage').hidden=!quizMode();el('choices').hidden=!quizMode();
  if(!quizMode())return;
@@ -59,15 +59,16 @@ el('know').onclick=()=>rate(true);el('miss').onclick=()=>rate(false);
 try{
  const raw=location.hash.slice(1);if(!raw)throw Error();
  const key=await crypto.subtle.importKey('raw',Uint8Array.from(atob(raw.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0)),'AES-GCM',false,['decrypt']);
- const response=await fetch('deck.bin');if(!response.ok)throw Error();
+ const response=await fetch('deck.bin?v=notes');if(!response.ok)throw Error();
  const data=new Uint8Array(await response.arrayBuffer());
  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:data.slice(0,12)},key,data.slice(12));
  const groups=JSON.parse(new TextDecoder().decode(plain));
- cards=Object.entries(groups).flatMap(([subject,rows])=>rows.map(([topic,q,a],i)=>({subject,topic,q,a,id:subject+i})));
+ cards=Object.entries(groups).flatMap(([subject,rows])=>rows.map(([topic,q,a,memo],i)=>({subject,topic,q,a,memo,id:subject+i})));
  const qr=await fetch('quiz.bin?v=285');if(!qr.ok)throw Error();
  const bytes=new Uint8Array(await qr.arrayBuffer());
  const quizGroups=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.slice(0,12)},key,bytes.slice(12))));
- quizzes=Object.entries(quizGroups).flatMap(([subject,rows])=>rows.map(([passage,q,a,...distractors],i)=>({subject,passage,q,a,distractors,id:'quiz-'+subject+(i+(subject==='言語'?10:12))})));
+ quizzes=Object.entries(quizGroups).flatMap(([subject,rows])=>rows.map(([passage,q,a,...distractors],i)=>({subject,passage,q,a,distractors,memo:groups[subject][i][3],id:'quiz-'+subject+(i+(subject==='言語'?10:12))})));
  el('status').hidden=true;home();
 }catch{el('status').textContent='カードを開けません。共有URLを末尾までコピーして開き直してください。'}
+
 
